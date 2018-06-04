@@ -1,0 +1,135 @@
+(function($){
+	function Calendar(dayRenderFunc, options){
+		this.dayRenderFunc = dayRenderFunc
+		this.settings = $.extend({
+			month: new Date(),
+			firstDayOfWeek: 0,
+			tableAttributes: {
+				"class": 'calendar'
+			}
+		}, options)
+		
+		this.output = $('<table></table>')
+		this.output.attr(this.settings.tableAttributes)
+		
+		
+		this.setDaysInMonth()
+		this.setFirstDayOfMonth()
+		this.setLastDayOfMonth()
+		this.setWeeksInMonth()
+		
+		this.setDayNames()
+		this.setCalendarStartsOn()
+		
+		this.renderMonthSelection()
+		this.renderDayNames()
+		this.renderDays()
+	}
+	
+	Calendar.prototype = {
+		// Stolen from http://snippets.dzone.com/posts/show/2099
+		setDaysInMonth: function(){
+			var year = this.settings.month.getFullYear()
+			var month = this.settings.month.getMonth()
+			this.daysInMonth = (32 - new Date(year, month, 32).getDate())
+		},
+		
+		setFirstDayOfMonth: function(){
+			this.firstDayOfMonth = new Date(this.settings.month.getFullYear(), this.settings.month.getMonth(), 1)
+		},
+		
+		setLastDayOfMonth: function(){
+			this.lastDayOfMonth = new Date(this.settings.month.getFullYear(), this.settings.month.getMonth(), this.daysInMonth)
+		},
+		
+		// Generates an array of one date instance per day in the month.
+		setWeeksInMonth: function(){
+			var secondsInWeek			= 604800
+			var secondsInMonth 		= (this.lastDayOfMonth.getTime() - this.firstDayOfMonth.getTime()) / 1000
+			
+			this.weeksInMonth = Math.ceil(secondsInMonth / secondsInWeek)
+		},
+		
+		setDayNames: function(){
+			var dayNames 		= ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+			var tail				= []
+			var counter 		= this.settings.firstDayOfWeek
+			
+			while (counter > 0){
+				tail.push(dayNames.shift())
+				counter -= 1
+			}
+
+			$(tail).each(function(i, t) { dayNames.push(t) })
+			this.dayNames = dayNames
+		},
+		
+		// The first day of the calendar. Can be a day in the month before the current month
+		setCalendarStartsOn: function(){
+			var beginningOfMonth 		= new Date(this.settings.month.getFullYear(), this.settings.month.getMonth())
+			var daysSinceSunday 		= beginningOfMonth.getDay()
+			var secondsSinceSunday 	= ((daysSinceSunday * 24) * 3600) * 1000
+			var offset							= secondsSinceSunday - ((((this.settings.firstDayOfWeek) * 24) * 3600) * 1000)
+			
+			this.calendarStartsOn = new Date(beginningOfMonth.getTime() - offset)
+		},
+		
+		renderMonthSelection: function(){
+			var months 				= ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+			var currentMonth	= months[this.settings.month.getMonth()]
+		},
+		
+		renderDayNames: function(){
+			var dayNames = $('<tr></tr>')
+			$(this.dayNames).each(function(i, day){ dayNames.append('<td>' + day + '</td>') })
+			this.output.append(dayNames)
+		},
+		
+		// Highly inspired by http://github.com/farski/calendar_for/tree/master/lib/calendar_helpers.rb
+		renderDays: function(){
+			var week = 0
+			while (week < this.weeksInMonth) {
+				var weekRow = $('<tr></tr>')
+				
+				var day = 0
+				while (day < 7) {
+					var dayAdvancer = week * 7 + day
+					var currentDate = new Date(this.calendarStartsOn.getFullYear(), this.calendarStartsOn.getMonth(), this.calendarStartsOn.getDate() + dayAdvancer)
+					
+					var cell = $('<td></td>')
+					cell.append(this.dayRenderFunc(currentDate) || currentDate.getDate())
+
+					if ((currentDate.getTime() < this.firstDayOfMonth) || (currentDate.getTime() > this.lastDayOfMonth)){
+						cell.addClass('offday')
+					}
+					
+					var today = new Date()
+					if (currentDate.getTime() == new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()){
+						cell.addClass('today')
+					}
+					
+					weekRow.append(cell)
+					day += 1
+				}
+								
+				this.output.append(weekRow)
+				week += 1
+			}
+		},
+	}
+	
+	/*
+	Draws a calendar.
+	
+	Settings takes the following options:
+	
+		month 					- a Date object. It will render the calendar for the month 
+											that date is in.
+		firstDayOfWeek 	- offset (0 by default) from Sunday.
+		tableAttributes - a hash representing DOM object attributes for the main
+											calendar table.
+	*/
+	$.fn.calendar = function(dayRenderFunc, options){
+		this.html(new Calendar(dayRenderFunc, options).output)
+	}
+}(jQuery))
